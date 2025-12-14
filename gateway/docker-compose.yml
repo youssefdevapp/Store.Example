@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # NGINX Gateway
+  gateway:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./logs:/var/log/nginx
+    depends_on:
+      - api.auth
+      - api.clients
+      - api.orders
+      - front.store
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # API.Auth
+  api.auth:
+    build:
+      context: ../apis/API.Auth
+      dockerfile: Dockerfile
+    container_name: api.auth
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=https://+:5001;http://+:80
+    ports:
+      - "5001:5001"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # API.clients
+  api.clients:
+    build:
+      context: ../apis/API.Clients
+      dockerfile: Dockerfile
+    container_name: api.clients
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=https://+:5002;http://+:80
+    ports:
+      - "5002:5002"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # API.orders
+  api.orders:
+    build:
+      context: ../apis/API.Orders
+      dockerfile: Dockerfile
+    container_name: api.orders
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=https://+:5003;http://+:80
+    ports:
+      - "5003:5003"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Front.Store (Angular)
+  front.store:
+    build:
+      context: ../frontend/Front.Store
+      dockerfile: Dockerfile
+    container_name: front.store
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "4200:4200"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4200"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  logs:
